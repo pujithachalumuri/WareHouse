@@ -10,6 +10,8 @@ export default function Profile() {
   const { user, logout, updateUser } = useAuth();
   const [form, setForm] = useState({ name: user?.name || '', company: user?.company || '', phone: user?.phone || '', address: user?.address || '', businessType: user?.businessType || '', bio: user?.bio || '' });
   const [saving, setSaving] = useState(false);
+  const [ps, setPs] = useState({ current: '', newPassword: '', confirm: '' });
+  const [psSaving, setPsSaving] = useState(false);
 
   const save = async (e) => {
     e.preventDefault();
@@ -52,6 +54,42 @@ export default function Profile() {
             <div className="form-group"><label>Address</label><input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
             <div className="form-group"><label>Bio</label><textarea value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })} /></div>
             <button className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : 'Save Changes'}</button>
+          </form>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (ps.newPassword !== ps.confirm) {
+                showToast("New passwords don't match", 'error');
+                return;
+              }
+              setPsSaving(true);
+              api
+                .put('/auth/profile', { currentPassword: ps.current, password: ps.newPassword })
+                .then(() => {
+                  showToast('Password changed successfully');
+                  setPs({ current: '', newPassword: '', confirm: '' });
+                })
+                .catch((err) => showToast(err.message || 'Failed to change password', 'error'))
+                .finally(() => setPsSaving(false));
+            }}
+            className="card mt-3"
+          >
+            <h3 className="mb-3">Change Password</h3>
+            <div className="form-group">
+              <label>Current Password</label>
+              <input type="password" value={ps.current} onChange={(e) => setPs({ ...ps, current: e.target.value })} placeholder="Your current password" required />
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label>New Password</label>
+                <input type="password" value={ps.newPassword} onChange={(e) => setPs({ ...ps, newPassword: e.target.value })} placeholder="Min 6 chars, upper, lower, number, symbol" required />
+              </div>
+              <div className="form-group">
+                <label>Confirm New Password</label>
+                <input type="password" value={ps.confirm} onChange={(e) => setPs({ ...ps, confirm: e.target.value })} placeholder="Re-enter new password" required />
+              </div>
+            </div>
+            <button type="submit" className="btn btn-primary" disabled={psSaving}>{psSaving ? 'Updating...' : 'Update Password'}</button>
           </form>
         </div>
       </div>
