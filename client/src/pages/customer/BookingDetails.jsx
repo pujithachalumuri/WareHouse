@@ -33,6 +33,16 @@ export default function BookingDetails() {
     } catch (e) { showToast(e.message, 'error'); }
   };
 
+  const checkout = async () => {
+    if (!window.confirm('Confirm the customer has left and mark this rental as completed?')) return;
+    try {
+      await api.put(`/bookings/${id}/checkout`);
+      showToast('Rental completed. Exit logged.');
+      const b = await api.get(`/bookings/${id}`);
+      setBooking(b);
+    } catch (e) { showToast(e.message, 'error'); }
+  };
+
   if (loading) return <div className="section container"><p>Loading...</p></div>;
   if (!booking) return <div className="section container"><div className="empty"><p>Booking not found.</p><Link to="/my-bookings" className="btn btn-primary btn-sm mt-2">Back</Link></div></div>;
 
@@ -97,6 +107,9 @@ export default function BookingDetails() {
             )}
             {isCustomer && (booking.status === 'pending' || booking.status === 'approved' || booking.status === 'active') && (
               <button className="btn btn-danger btn-block mt-2" onClick={cancel}>Cancel Booking</button>
+            )}
+            {booking.status === 'active' && (isCustomer || isOwner) && (
+              <button className="btn btn-outline btn-block mt-2" onClick={checkout}>↩️ Check Out (Mark as Completed)</button>
             )}
           </div>
         </div>

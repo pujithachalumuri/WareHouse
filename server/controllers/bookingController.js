@@ -1,7 +1,9 @@
 const Booking = require('../models/Booking');
 const Warehouse = require('../models/Warehouse');
+const User = require('../models/User');
 const Payment = require('../models/Payment');
 const Notification = require('../models/Notification');
+const AccessLog = require('../models/AccessLog');
 const { PLATFORM_FEE_PERCENT, DEPOSIT_PERCENT } = require('../utils/pricing');
 
 const calculate = (space, price, months) => {
@@ -9,6 +11,18 @@ const calculate = (space, price, months) => {
   const deposit = Math.round(spaceRent * (DEPOSIT_PERCENT / 100));
   const platformFee = Math.round(spaceRent * (PLATFORM_FEE_PERCENT / 100));
   return { spaceRent, deposit, platformFee, totalAmount: spaceRent + deposit + platformFee };
+};
+
+const logAccess = async ({ userId, userName, warehouseId, warehouseName, accessType }) => {
+  await AccessLog.create({
+    userId,
+    userName,
+    warehouseId,
+    warehouseName,
+    accessType,
+    status: 'granted',
+    method: 'face',
+  });
 };
 
 // @route POST /api/bookings
@@ -118,12 +132,18 @@ const updateBookingStatus = async (req, res) => {
     if (status === 'approved' || status === 'active') booking.agreementGenerated = true;
     await booking.save();
 
-    // notify customer
-    let whName = booking.warehouseId && booking.warehouseId.name ? booking.warehouseId.name : 'the warehouse';
-    if (!booking.warehouseId || !booking.warehouseId.name) {
-      const w = await Warehouse.findById(booking.warehouseId);
-      if (w) whName = w.name;
+    const wh = await Warehouse.findById(booking.warehouseId);
+    const whName = wh ? wh.name : 'the warehouse';
+    const user = await User.findById(booking.customerId);
+
+    if (status === 'active') {
+      await logAccess({ userId: booking.customerId, userName: user?.name || 'Customer', warehouseId: booking.warehouseId, warehouseName: whName, accessType: 'entry' });
     }
+    if (status === 'completed') {
+      await logAccess({ userId: booking.customerId, userName: user?.name || 'Customer', warehouseId: booking.warehouseId, warehouseName: whName, accessType: 'exit' });
+    }
+
+    // notify customer
     await Notification.create({
       userId: booking.customerId,
       title:
@@ -193,6 +213,11 @@ const togglePaid = async (req, res) => {
     }
     if (booking.status === 'approved' && paid) booking.status = 'active';
     await booking.save();
+    if (paid && booking.status === 'active') {
+      const w = await Warehouse.findById(booking.warehouseId);
+      const c = await User.findById(booking.customerId);
+      await logAccess({ userId: booking.customerId, userName: c?.name || 'Customer', warehouseId: booking.warehouseId, warehouseName: w?.name || 'the warehouse', accessType: 'entry' });
+    }
     // notify customer
     await Notification.create({
       userId: booking.customerId,
@@ -224,7 +249,46 @@ const recordPayment = async (req, res) => {
     booking.paymentStatus = 'paid';
     if (booking.status === 'approved') booking.status = 'active';
     await booking.save();
+    if (booking.status === 'active') {
+      const w = await Warehouse.findById(booking.warehouseId);
+      const c = await User.findById(booking.customerId);
+      await logAccess({ userId: booking.customerId, userName: c?.name || 'Customer', warehouseId: booking.warehouseId, warehouseName: w?.name || 'the warehouse', accessType: 'entry' });
+    }
     res.status(201).json(payment);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// @route PUT /api/bookings/:id/checkout  (customer/owner/admin mark booking as completed)
+const checkoutBooking = async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) return res.status(404).json({ message: 'Booking not found' });
+    const isCustomer = String(booking.customerId) === String(req.user._id);
+    const isOwner = String(booking.ownerId) === String(req.user._id);
+    if (!isCustomer && !isOwner && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized for this booking' });
+    }
+    if (booking.status !== 'active') {
+      return res.status(400).json({ message: 'Only active bookings can be checked out' });
+    }
+    booking.status = 'completed';
+    await booking.save();
+    const w = await Warehouse.findById(booking.warehouseId);
+    if (w) {
+      w.availableSpace = Math.min(w.totalSpace, w.availableSpace + booking.spaceRequired);
+      await w.save();
+    }
+    const c = await User.findById(booking.customerId);
+    await logAccess({ userId: booking.customerId, userName: c?.name || 'Customer', warehouseId: booking.warehouseId, warehouseName: w?.name || 'the warehouse', accessType: 'exit' });
+    await Notification.create({
+      userId: isCustomer ? booking.ownerId : booking.customerId,
+      title: 'Rental completed',
+      message: `The rental of ${w?.name || 'the warehouse'} has been checked out and is now completed.`,
+      type: 'system',
+    });
+    res.json(booking);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -239,5 +303,6 @@ module.exports = {
   recordPayment,
   togglePaid,
   requestPaid,
+  checkoutBooking,
   calculate,
 };

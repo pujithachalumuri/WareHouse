@@ -1,6 +1,6 @@
 const express = require('express');
 const {
-  createBooking, getMyBookings, getOwnerBookings, getBookingById, updateBookingStatus, recordPayment, togglePaid, requestPaid,
+  createBooking, getMyBookings, getOwnerBookings, getBookingById, updateBookingStatus, recordPayment, togglePaid, requestPaid, checkoutBooking,
 } = require('../controllers/bookingController');
 const { protect } = require('../middleware/auth');
 const { requireDb } = require('../utils/requireDb');
@@ -13,6 +13,7 @@ router.post('/:id/pay', protect, requireDb(recordPayment));
 router.put('/:id/request-paid', protect, requireDb(requestPaid));
 router.put('/:id/paid', protect, requireDb(togglePaid));
 router.put('/:id/status', protect, requireDb(updateBookingStatus));
+router.put('/:id/checkout', protect, requireDb(checkoutBooking));
 router.get('/:id', protect, requireDb(getBookingById));
 
 module.exports = router;
