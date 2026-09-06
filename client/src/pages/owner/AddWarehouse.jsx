@@ -54,7 +54,7 @@ export default function AddWarehouse() {
         price: Number(form.price),
         minimumDuration: Number(form.minimumDuration) || 1,
       });
-      showToast('Warehouse submitted successfully for admin verification');
+      showToast('Warehouse created successfully');
       navigate('/my-warehouses');
     } catch (err) {
       showToast(err.message, 'error');
@@ -69,7 +69,7 @@ export default function AddWarehouse() {
       <div className="dash-main">
         <div className="dash-content">
           <h2 className="page-title">Add Warehouse</h2>
-          <p className="page-sub">List your warehouse space. It will be verified by an admin before going live.</p>
+          <p className="page-sub">List your warehouse space. It goes live immediately.</p>
 
           <form onSubmit={submit} className="card">
             <div className="form-row">

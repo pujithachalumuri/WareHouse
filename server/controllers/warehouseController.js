@@ -4,7 +4,7 @@ const Review = require('../models/Review');
 // @route GET /api/warehouses ?location,space,price,max,type,security,etc
 const getWarehouses = async (req, res) => {
   try {
-    const query = { status: 'active', verificationStatus: 'verified' };
+    const query = { status: 'active' };
     const { location, minSpace, maxPrice, storageType, warehouseType } = req.query;
 
     if (location) query.location = new RegExp(location, 'i');
@@ -28,7 +28,7 @@ const getWarehouses = async (req, res) => {
 // @route GET /api/warehouses/public
 const getPublicWarehouses = async (req, res) => {
   try {
-    const whs = await Warehouse.find({ status: 'active', verificationStatus: 'verified' })
+    const whs = await Warehouse.find({ status: 'active' })
       .populate('ownerId', 'name company')
       .limit(Number(req.query.limit) || 50);
     res.json(whs);
@@ -82,7 +82,7 @@ const createWarehouse = async (req, res) => {
       facilities: data.facilities || [],
       security: data.security || [],
       images: data.images || [],
-      verificationStatus: 'pending',
+      verificationStatus: 'verified',
     });
     res.status(201).json(wh);
   } catch (err) {
