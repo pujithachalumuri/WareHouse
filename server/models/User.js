@@ -19,6 +19,7 @@ const userSchema = new mongoose.Schema(
     businessType: { type: String, default: '' },
     bio: { type: String, default: '' },
     accountVerified: { type: Boolean, default: false },
+    googleId: { type: String, default: '' },
     faceHash: { type: String, default: '' },
     faceImage: { type: String, default: '' },
     faceEnabled: { type: Boolean, default: false },

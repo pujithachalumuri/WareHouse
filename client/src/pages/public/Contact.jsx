@@ -69,7 +69,7 @@ export default function Contact() {
                     type="text"
                     value={form.name}
                     onChange={handleChange}
-                    placeholder="John Doe"
+                    placeholder="Your name"
                     required
                   />
                 </div>

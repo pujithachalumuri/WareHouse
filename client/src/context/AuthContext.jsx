@@ -21,10 +21,24 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  const login = async (email, password, role, faceImage) => {
+  const login = async (email, password, role) => {
     setLoading(true);
     try {
-      const res = await api.post('/auth/login', { email, password, role, faceImage });
+      const res = await api.post('/auth/login', { email, password, role });
+      setUser(res.user);
+      saveAuth(res.user, res.token);
+      return { success: true, user: res.user };
+    } catch (err) {
+      return { success: false, message: err.message, data: err.data };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const googleLogin = async (credential, role, name, email) => {
+    setLoading(true);
+    try {
+      const res = await api.post('/auth/google', { credential, role, name, email });
       setUser(res.user);
       saveAuth(res.user, res.token);
       return { success: true, user: res.user };
@@ -60,7 +74,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, loading, login, googleLogin, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

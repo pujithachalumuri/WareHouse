@@ -1,5 +1,7 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library');
+const crypto = require('crypto');
 const { JWT_SECRET } = require('../config');
 const { faceHash, verifyFace } = require('../utils/faceHash');
 const {
@@ -7,6 +9,14 @@ const {
   normalizePhone,
   validatePassword,
 } = require('../utils/validation');
+
+let googleClient = null;
+function getGoogleClient() {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId || clientId.includes('YOUR_')) return null;
+  if (!googleClient) googleClient = new OAuth2Client(clientId);
+  return googleClient;
+}
 
 const generateToken = (id) => jwt.sign({ id }, JWT_SECRET, { expiresIn: '30d' });
 
@@ -26,7 +36,7 @@ const register = async (req, res) => {
       return res.status(400).json({ message: 'Please provide name, email and password' });
     }
 
-    if (!isValidIndianPhone(phone)) {
+    if (phone && !isValidIndianPhone(phone)) {
       return res.status(400).json({
         message:
           'Enter a valid Indian phone number: +91 followed by 10 digits, first digit must be 6, 7, 8 or 9.',
@@ -44,32 +54,15 @@ const register = async (req, res) => {
       return res.status(400).json({ message: 'User already exists with this email' });
     }
 
-    let face = {};
-    if (faceImage) {
-      try {
-        const hash = await faceHash(faceImage);
-        face = { faceHash: hash, faceImage, faceEnabled: true };
-      } catch (err) {
-        return res
-          .status(400)
-          .json({ message: 'Could not read the face photo. Please upload a clear image of your face.', field: 'faceImage' });
-      }
-    } else {
-      return res
-        .status(400)
-        .json({ message: 'Face verification photo is required for registration.', field: 'faceImage' });
-    }
-
     const user = await User.create({
       name,
       email,
-      phone: normalizePhone(phone),
+      phone: phone ? normalizePhone(phone) : '',
       password,
       role: validRole,
       profileImage: req.body.profileImage || '',
       company: req.body.company || '',
       accountVerified: true,
-      ...face,
     });
 
     res.status(201).json({ user: sanitize(user), token: generateToken(user._id) });
@@ -148,4 +141,64 @@ const validate = async (req, res) => {
   res.json(result);
 };
 
-module.exports = { register, login, getMe, updateProfile, validate, generateToken };
+// @route POST /api/auth/google
+const googleLogin = async (req, res) => {
+  try {
+    const { credential, role, name, email } = req.body;
+    const googleClient = getGoogleClient();
+    if (!googleClient) {
+      return res.status(501).json({ message: 'Google sign-in is not configured yet.' });
+    }
+    if (!credential) {
+      return res.status(400).json({ message: 'Missing Google credential.' });
+    }
+
+    let ticket;
+    try {
+      ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+    } catch (err) {
+      return res.status(401).json({ message: 'Could not verify Google sign-in.' });
+    }
+    const payload = ticket.getPayload();
+    const gEmail = (payload.email || '').toLowerCase();
+    if (!gEmail) return res.status(401).json({ message: 'No email returned by Google.' });
+
+    let user = await User.findOne({ email: gEmail });
+    const isNew = !user;
+    if (!user) {
+      const validRole = ['customer', 'owner'].includes(role) ? role : 'customer';
+      user = await User.create({
+        name: name || payload.name || gEmail.split('@')[0],
+        email: gEmail,
+        password: crypto.randomBytes(24).toString('hex'),
+        phone: '',
+        role: validRole,
+        profileImage: payload.picture || '',
+        company: '',
+        accountVerified: true,
+        googleId: payload.sub,
+      });
+    } else {
+      if (user.status === 'blocked') {
+        return res.status(403).json({ message: 'Your account has been blocked by the admin' });
+      }
+      if (role && user.role !== role) {
+        return res.status(401).json({
+          message: `This account is a ${user.role === 'owner' ? 'Warehouse Owner' : 'Customer'} account. Please use the correct tab.`,
+        });
+      }
+      user.googleId = user.googleId || payload.sub;
+      if (payload.picture && !user.profileImage) user.profileImage = payload.picture;
+      await user.save();
+    }
+
+    res.json({ user: sanitize(user), token: generateToken(user._id), isNew });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+module.exports = { register, login, getMe, updateProfile, validate, generateToken, googleLogin };

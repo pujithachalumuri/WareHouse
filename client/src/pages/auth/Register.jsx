@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { showToast } from '../../components/Toast';
-import FaceCapture from '../../components/FaceCapture';
 
 const checkPassword = (p) => ({
   length: p.length >= 6,
@@ -11,14 +10,6 @@ const checkPassword = (p) => ({
   digit: /\d/.test(p),
   special: /[^A-Za-z0-9]/.test(p),
 });
-
-const phoneError = (phone) => {
-  const cleaned = String(phone || '').replace(/[\s-]/g, '').replace(/^\+/, '').replace(/^91/, '');
-  if (!cleaned) return '';
-  if (!/^\d{10}$/.test(cleaned)) return 'Enter exactly 10 digits only (numbers).';
-  if (!/^[6789]/.test(cleaned)) return 'Number must start with 6, 7, 8 or 9.';
-  return '';
-};
 
 function suggestStrong() {
   const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
@@ -43,7 +34,6 @@ export default function Register() {
   const pwScore = Object.values(pwChecks).filter(Boolean).length;
   const pwStrength = pwScore <= 2 ? 'Weak' : pwScore <= 4 ? 'Medium' : 'Strong';
   const pwStrengthColor = pwScore <= 2 ? 'var(--danger)' : pwScore <= 4 ? 'var(--warning)' : 'var(--success)';
-  const pErr = phoneError(form.phone);
   const pwBad = !pwChecks.length || !pwChecks.upper || !pwChecks.lower || !pwChecks.digit || !pwChecks.special;
 
   const handleSubmit = async (e) => {
@@ -51,8 +41,6 @@ export default function Register() {
     setErr('');
     if (form.password !== form.confirmPassword) { setErr('Passwords do not match'); return; }
     if (pwBad) { setErr('Fix the red password errors below (min 6 chars with upper, lower, number and special character).'); return; }
-    if (pErr) { setErr(pErr); return; }
-    if (!form.faceImage) { setErr('Please capture or upload a photo of your face. It is required for secure login.'); return; }
     const res = await register(form);
     if (res.success) {
       showToast('Account created successfully!');
@@ -86,7 +74,7 @@ export default function Register() {
 
           <div className="form-group">
             <label className="form-label">Full Name</label>
-            <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="John Doe" required />
+            <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Your full name" required />
           </div>
 
           <div className="form-group">
@@ -95,23 +83,18 @@ export default function Register() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Phone Number <span className="text-muted">(India)</span></label>
-            <div className={`phone-input-group ${form.phone && pErr ? 'input-error' : ''}`}>
+            <label className="form-label">Phone Number <span className="text-muted">(optional)</span></label>
+            <div className={`phone-input-group ${form.phone ? '' : ''}`}>
               <span className="phone-code">🇮🇳 +91</span>
               <input
                 type="tel"
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                placeholder="10-digit mobile number (e.g. 98765 43210)"
+                placeholder="10-digit mobile number"
                 maxLength={20}
               />
             </div>
-            {pErr && form.phone ? (
-              <div className="field-error"><span className="field-error-icon">⚠️</span>{pErr}</div>
-            ) : !pErr && form.phone ? (
-              <div className="field-success">✓ Valid mobile number</div>
-            ) : null}
-            <p className="form-hint">Country code +91 (India). Enter exactly 10 digits starting with 6, 7, 8 or 9.</p>
+            <p className="form-hint">Optional. Country code +91 (India).</p>
           </div>
 
           <div className="form-row">
@@ -152,10 +135,6 @@ export default function Register() {
               <label className="form-label">Confirm Password</label>
               <input type={showPw ? 'text' : 'password'} value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} placeholder="••••••••" required />
             </div>
-          </div>
-
-          <div className="form-group">
-            <FaceCapture label="Face verification photo" value={form.faceImage} onChange={(v) => setForm({ ...form, faceImage: v })} required />
           </div>
 
           <button type="submit" className="btn btn-primary btn-block btn-lg mt-2">Create Account</button>
