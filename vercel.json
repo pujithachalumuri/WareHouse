@@ -1,12 +1,16 @@
 {
   "version": 2,
+  "framework": null,
+  "installCommand": "npm install --prefix client && npm install",
   "buildCommand": "npm --prefix client run build",
+  "outputDirectory": "client/dist",
   "functions": {
     "api/index.js": {
       "maxDuration": 10
     }
   },
   "rewrites": [
-    { "source": "/(.*)", "destination": "/api" }
+    { "source": "/api/(.*)", "destination": "/api" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
