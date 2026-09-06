@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Sidebar from '../../components/Sidebar';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../utils/api';
+import { showToast } from '../../components/Toast';
 import { formatDateTime } from '../../utils/format';
 import { CUSTOMER_SECTIONS } from '../../utils/sections';
 
@@ -9,18 +10,36 @@ export default function AccessLogs() {
   const { user, logout } = useAuth();
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    api.get('/access/logs').then(setLogs).catch(() => setLogs([])).finally(() => setLoading(false));
-  }, []);
+  const load = () => api.get('/access/logs').then(setLogs).catch(() => setLogs([]));
+  useEffect(() => { load().finally(() => setLoading(false)); }, []);
+
+  const verify = async (accessType) => {
+    setBusy(true);
+    try {
+      const bookings = await api.get('/bookings/mine').catch(() => []);
+      const wh = bookings.find((b) => b.status === 'active' || b.status === 'approved')?.warehouseId;
+      if (!wh) { showToast('No active booking found. Book a warehouse first.', 'error'); return; }
+      const res = await api.post('/access/verify', { warehouseId: wh._id || wh, accessType });
+      showToast(res.granted ? `${accessType} granted` : `${accessType} denied`, res.granted ? 'success' : 'error');
+      load();
+    } catch (err) { showToast(err.message, 'error'); }
+    setBusy(false);
+  };
 
   return (
     <div className="dashboard">
       <Sidebar sections={CUSTOMER_SECTIONS} onLogout={logout} />
       <div className="dash-main">
         <div className="dash-content">
-          <h2 className="page-title">Access Logs</h2>
-          <p className="page-sub">Track entries to your warehouses</p>
+          <div className="flex-between">
+            <div><h2 className="page-title">Access Logs</h2><p className="page-sub">Track entries to your warehouses</p></div>
+            <div className="flex" style={{ gap: 8 }}>
+              <button className="btn btn-outline btn-sm" disabled={busy} onClick={() => verify('entry')}>🟢 Simulate Entry</button>
+              <button className="btn btn-outline btn-sm" disabled={busy} onClick={() => verify('exit')}>🟡 Simulate Exit</button>
+            </div>
+          </div>
           {loading ? <p className="text-muted">Loading...</p> : logs.length === 0 ? (
             <div className="empty"><div className="e-icon">🕒</div><p>No access logs yet. Entry/exit events will appear here.</p></div>
           ) : (
