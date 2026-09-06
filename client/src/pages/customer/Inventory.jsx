@@ -7,6 +7,8 @@ import { CUSTOMER_SECTIONS } from '../../utils/sections';
 
 const emptyForm = { productName: '', category: '', quantity: '', lowStockThreshold: '', warehouseId: '' };
 
+const CATEGORIES = ['Electronics', 'Fashion', 'Groceries', 'Furniture', 'Machinery', 'Books & Documents', 'Pharmaceuticals', 'Automotive', 'Chemicals', 'General Merchandise'];
+
 export default function Inventory() {
   const { user, logout } = useAuth();
   const [items, setItems] = useState([]);
@@ -131,7 +133,13 @@ export default function Inventory() {
             <h3 className="mb-3">{editing ? 'Edit Product' : 'Add Product'}</h3>
             <form onSubmit={save}>
               <div className="form-group"><label>Product Name *</label><input value={form.productName} onChange={(e) => setForm({ ...form, productName: e.target.value })} required /></div>
-              <div className="form-group"><label>Category</label><input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} /></div>
+              <div className="form-group">
+                <label>Category</label>
+                <input list="category-options" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="Select or type a category" />
+                <datalist id="category-options">
+                  {CATEGORIES.map((c) => <option key={c} value={c} />)}
+                </datalist>
+              </div>
               <div className="form-row">
                 <div className="form-group"><label>Quantity *</label><input type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} required /></div>
                 <div className="form-group"><label>Low Stock Threshold</label><input type="number" value={form.lowStockThreshold} onChange={(e) => setForm({ ...form, lowStockThreshold: e.target.value })} /></div>
