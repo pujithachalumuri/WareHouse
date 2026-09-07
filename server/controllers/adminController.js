@@ -80,6 +80,7 @@ const getAllPayments = async (req, res) => {
     const payments = await Payment.find()
       .populate('customerId', 'name')
       .populate('warehouseId', 'name')
+      .populate('bookingId')
       .sort({ createdAt: -1 });
     res.json(payments);
   } catch (err) {

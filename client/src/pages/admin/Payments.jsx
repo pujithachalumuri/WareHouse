@@ -38,13 +38,34 @@ export default function Payments() {
 
   const sorted = payments.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
+  const breakdown = (p) => {
+    const b = p.bookingId || {};
+    const customerPaid = Number(p.amount) || 0;
+    const platformFee = Number(b.platformFee) || 0;
+    const deposit = Number(b.deposit) || 0;
+    const ownerGets = Number(b.spaceRent) || Math.max(0, customerPaid - platformFee - deposit);
+    return { customerPaid, platformFee, deposit, ownerGets };
+  };
+
+  const totals = sorted.reduce(
+    (acc, p) => {
+      const d = breakdown(p);
+      acc.collected += d.customerPaid;
+      acc.fees += d.platformFee;
+      acc.owners += d.ownerGets;
+      acc.deposits += d.deposit;
+      return acc;
+    },
+    { collected: 0, fees: 0, owners: 0, deposits: 0 }
+  );
+
   return (
     <div className="dashboard">
       <Sidebar sections={ADMIN_SECTIONS} onLogout={logout} />
       <div className="dash-main">
         <div className="dash-content">
           <h2 className="page-title">Manage Payments</h2>
-          <p className="page-sub">All payments processed on the platform.</p>
+          <p className="page-sub">All payments with the platform-fee split between customers and owners.</p>
 
           {loading ? (
             <p className="text-muted">Loading...</p>
@@ -54,34 +75,62 @@ export default function Payments() {
               <p>No payments found.</p>
             </div>
           ) : (
-            <div className="table-wrap">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Customer</th>
-                    <th>Warehouse</th>
-                    <th>Amount</th>
-                    <th>Type</th>
-                    <th>Method</th>
-                    <th>Status</th>
-                    <th>Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sorted.map((p) => (
-                    <tr key={p._id}>
-                      <td>{p.customerId?.name || '—'}</td>
-                      <td>{p.warehouseId?.name || '—'}</td>
-                      <td>{formatINR(p.amount)}</td>
-                      <td><span className="tag">{p.type || '—'}</span></td>
-                      <td>{p.method || '—'}</td>
-                      <td><span className={`status status-${p.status}`}>{p.status}</span></td>
-                      <td>{formatDate(p.createdAt)}</td>
+            <>
+              <div className="stat-grid">
+                <div className="stat-card">
+                  <div className="stat-label">Total Collected (Customers Paid)</div>
+                  <div className="stat-value">{formatINR(totals.collected)}</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-label">Platform Fees (5%)</div>
+                  <div className="stat-value">{formatINR(totals.fees)}</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-label">Owner Payouts (Space Rent)</div>
+                  <div className="stat-value">{formatINR(totals.owners)}</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-label">Deposits Held (10%, Refundable)</div>
+                  <div className="stat-value">{formatINR(totals.deposits)}</div>
+                </div>
+              </div>
+
+              <div className="table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Customer</th>
+                      <th>Warehouse</th>
+                      <th>Customer Paid</th>
+                      <th>Platform Fee</th>
+                      <th>Owner Gets</th>
+                      <th>Deposit Held</th>
+                      <th>Method</th>
+                      <th>Status</th>
+                      <th>Date</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {sorted.map((p) => {
+                      const d = breakdown(p);
+                      return (
+                        <tr key={p._id}>
+                          <td>{p.customerId?.name || '—'}</td>
+                          <td>{p.warehouseId?.name || '—'}</td>
+                          <td><strong>{formatINR(d.customerPaid)}</strong></td>
+                          <td><span className="tag tag-amber">{formatINR(d.platformFee)}</span></td>
+                          <td><span className="tag tag-green">{formatINR(d.ownerGets)}</span></td>
+                          <td>{formatINR(d.deposit)}</td>
+                          <td>{p.method || '—'}</td>
+                          <td><span className={`status status-${p.status}`}>{p.status}</span></td>
+                          <td>{formatDate(p.createdAt)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </div>

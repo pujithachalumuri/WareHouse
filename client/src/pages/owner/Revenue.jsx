@@ -37,24 +37,24 @@ export default function Revenue() {
   useEffect(() => { load(); }, []);
 
   const revenueStatuses = ['active', 'approved', 'completed'];
-  const totalRevenue = bookings
-    .filter((b) => revenueStatuses.includes(b.status))
-    .reduce((s, b) => s + (Number(b.totalAmount) || 0), 0);
+  const relevant = bookings.filter((b) => revenueStatuses.includes(b.status));
+  const grossRevenue = relevant.reduce((s, b) => s + (Number(b.totalAmount) || 0), 0);
+  const ownerShare = relevant.reduce((s, b) => s + (Number(b.spaceRent) || 0), 0);
+  const platformFees = relevant.reduce((s, b) => s + (Number(b.platformFee) || 0), 0);
+  const deposits = relevant.reduce((s, b) => s + (Number(b.deposit) || 0), 0);
   const activeCount = bookings.filter((b) => b.status === 'active').length;
   const completedCount = bookings.filter((b) => b.status === 'completed').length;
   const pendingCount = bookings.filter((b) => b.status === 'pending').length;
 
   const monthly = {};
-  bookings
-    .filter((b) => revenueStatuses.includes(b.status))
-    .forEach((b) => {
-      const d = b.createdAt ? new Date(b.createdAt) : new Date();
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const label = d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
-      if (!monthly[key]) monthly[key] = { label, total: 0, count: 0 };
-      monthly[key].total += Number(b.totalAmount) || 0;
-      monthly[key].count += 1;
-    });
+  relevant.forEach((b) => {
+    const d = b.createdAt ? new Date(b.createdAt) : new Date();
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const label = d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+    if (!monthly[key]) monthly[key] = { label, total: 0, count: 0 };
+    monthly[key].total += Number(b.spaceRent) || 0;
+    monthly[key].count += 1;
+  });
   const monthlyList = Object.entries(monthly)
     .sort((a, b) => b[0].localeCompare(a[0]))
     .map(([, v]) => v);
@@ -75,8 +75,20 @@ export default function Revenue() {
             <>
               <div className="stat-grid">
                 <div className="stat-card">
-                  <div className="stat-label">Total Revenue</div>
-                  <div className="stat-value">{formatINR(totalRevenue)}</div>
+                  <div className="stat-label">Gross Revenue (Customers Paid)</div>
+                  <div className="stat-value">{formatINR(grossRevenue)}</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-label">Your Payout (Space Rent)</div>
+                  <div className="stat-value">{formatINR(ownerShare)}</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-label">Platform Fees (5%)</div>
+                  <div className="stat-value">{formatINR(platformFees)}</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-label">Deposits Held (10%)</div>
+                  <div className="stat-value">{formatINR(deposits)}</div>
                 </div>
                 <div className="stat-card">
                   <div className="stat-label">Active Bookings</div>
@@ -93,7 +105,7 @@ export default function Revenue() {
               </div>
 
               <div className="card mt-4">
-                <h3 className="mb-3">Monthly Breakdown</h3>
+                <h3 className="mb-3">Monthly Breakdown (Your Payout)</h3>
                 {monthlyList.length === 0 ? (
                   <p className="text-muted">No revenue data yet.</p>
                 ) : (
@@ -133,7 +145,9 @@ export default function Revenue() {
                           <th>Warehouse</th>
                           <th>Space</th>
                           <th>Created</th>
-                          <th>Amount</th>
+                          <th>Customer Paid</th>
+                          <th>Your Payout</th>
+                          <th>Platform Fee</th>
                           <th>Status</th>
                         </tr>
                       </thead>
@@ -142,9 +156,11 @@ export default function Revenue() {
                           <tr key={b._id}>
                             <td>{b.customerId?.name || 'Customer'}</td>
                             <td>{b.warehouseId?.name || '—'}</td>
-                            <td>{b.space} sq.ft</td>
+                            <td>{Number(b.spaceRequired || 0).toLocaleString()} sq.ft</td>
                             <td>{formatDate(b.createdAt)}</td>
                             <td>{formatINR(b.totalAmount)}</td>
+                            <td><span className="tag tag-green">{formatINR(b.spaceRent)}</span></td>
+                            <td><span className="tag tag-amber">{formatINR(b.platformFee)}</span></td>
                             <td><span className={`status status-${b.status}`}>{b.status}</span></td>
                           </tr>
                         ))}
