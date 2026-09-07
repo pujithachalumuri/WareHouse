@@ -95,9 +95,12 @@ export default function MyWarehouses() {
                       <td>{formatINR(w.price)}<span className="text-muted text-sm">/sq.ft</span></td>
                       <td><span className={`status status-${w.status}`}>{w.status}</span></td>
                       <td>
-                        <span className={`tag ${w.verificationStatus === 'verified' ? 'tag-green' : 'tag-amber'}`}>
+                        <span className={`tag ${w.verificationStatus === 'verified' ? 'tag-green' : w.verificationStatus === 'rejected' ? 'tag-red' : 'tag-amber'}`}>
                           {w.verificationStatus || 'pending'}
                         </span>
+                        {(w.verificationVideo || (Array.isArray(w.verificationDocuments) && w.verificationDocuments.length)) ? (
+                          <div className="text-muted text-sm" style={{ marginTop: 4 }}>📎 proof uploaded</div>
+                        ) : null}
                       </td>
                       <td>
                         <div className="flex" style={{ gap: 8 }}>

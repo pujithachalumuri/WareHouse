@@ -79,6 +79,7 @@ export default function Verification() {
                     <th>Location</th>
                     <th>Space</th>
                     <th>Price</th>
+                    <th>Proof</th>
                     <th>Status</th>
                     <th>Actions</th>
                   </tr>
@@ -93,6 +94,34 @@ export default function Verification() {
                         {Number(w.availableSpace || 0).toLocaleString()} / {Number(w.totalSpace || 0).toLocaleString()} sq.ft
                       </td>
                       <td>{formatINR(w.price)}/sq.ft</td>
+                      <td style={{ maxWidth: 260 }}>
+                        {w.verificationVideo ? (
+                          <video
+                            controls
+                            preload="metadata"
+                            src={`data:video/mp4;base64,${w.verificationVideo}`}
+                            style={{ width: '100%', maxWidth: 240, borderRadius: 8, background: '#000' }}
+                          />
+                        ) : null}
+                        {Array.isArray(w.verificationDocuments) && w.verificationDocuments.length > 0 ? (
+                          <div className="flex" style={{ gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                            {w.verificationDocuments.map((d, i) => (
+                              <a
+                                key={i}
+                                href={`data:${d.type || 'application/octet-stream'};base64,${d.data}`}
+                                download={d.name || `doc-${i}`}
+                                className="tag tag-blue"
+                                style={{ textDecoration: 'none' }}
+                              >
+                                📄 {d.name}
+                              </a>
+                            ))}
+                          </div>
+                        ) : null}
+                        {!w.verificationVideo && (!Array.isArray(w.verificationDocuments) || w.verificationDocuments.length === 0) ? (
+                          <span className="text-muted text-sm">No proof</span>
+                        ) : null}
+                      </td>
                       <td><span className="status status-pending-verify">pending</span></td>
                       <td>
                         <div className="flex" style={{ gap: 8 }}>

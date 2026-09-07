@@ -36,7 +36,7 @@ export default function ListWarehouse() {
     try {
       await api.post('/warehouses', { ...form, totalSpace: Number(form.totalSpace), availableSpace: Number(form.availableSpace), price: Number(form.price) });
       setSubmitted(true);
-      showToast('Warehouse created successfully');
+      showToast('Warehouse submitted for admin verification.');
     } catch (err) {
       showToast(err.message, 'error');
     }
@@ -48,8 +48,8 @@ export default function ListWarehouse() {
         <div className="container-narrow">
           <div className="card text-center" style={{ padding: '48px 32px' }}>
             <div style={{ fontSize: '3rem', marginBottom: 16 }}>✅</div>
-            <h2 className="mb-2">Warehouse created successfully</h2>
-            <p className="text-muted mb-3">Your warehouse is now live on the platform.</p>
+            <h2 className="mb-2">Warehouse submitted for verification</h2>
+            <p className="text-muted mb-3">Our admin team will review your listing and proof. Once approved, it will go live on the platform.</p>
             <Link to="/owner-dashboard" className="btn btn-primary">Go to Dashboard</Link>
           </div>
         </div>

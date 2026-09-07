@@ -31,6 +31,17 @@ const warehouseSchema = new mongoose.Schema(
       enum: ['pending', 'verified', 'rejected'],
       default: 'pending',
     },
+    verificationVideo: { type: String, default: '' },
+    verificationDocuments: {
+      type: [
+        {
+          name: { type: String, default: '' },
+          type: { type: String, default: '' },
+          data: { type: String, default: '' },
+        },
+      ],
+      default: [],
+    },
     status: { type: String, enum: ['active', 'inactive', 'blocked'], default: 'active' },
     availableFrom: { type: Date, default: Date.now },
     availableTo: { type: Date, default: null },

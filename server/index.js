@@ -19,7 +19,7 @@ const { PORT, MONGO_URI } = require('./config');
 
 const app = express();
 app.use(cors({ origin: process.env.CLIENT_URL || '*', credentials: true }));
-app.use(express.json());
+app.use(express.json({ limit: '8mb' }));
 app.use(morgan('dev'));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', dbConfigured: !!MONGO_URI && !MONGO_URI.includes('USERNAME') }));

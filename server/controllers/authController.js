@@ -83,9 +83,10 @@ const login = async (req, res) => {
       return res.status(403).json({ message: 'Your account has been blocked by the admin' });
     }
     if (role && user.role !== role) {
+      const label = user.role === 'owner' ? 'Warehouse Owner' : user.role === 'admin' ? 'Admin' : 'Customer';
       return res
         .status(401)
-        .json({ message: `This account is a ${user.role === 'owner' ? 'Warehouse Owner' : 'Customer'} account. Please use the correct tab.` });
+        .json({ message: `This account is a ${label} account. Please use the correct tab.` });
     }
     const ok = await user.matchPassword(password);
     if (!ok) {

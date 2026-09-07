@@ -5,7 +5,8 @@ export default function ProtectedRoute({ children, roles }) {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
   if (roles && !roles.includes(user.role)) {
-    return <Navigate to={user.role === 'owner' ? '/owner-dashboard' : '/dashboard'} replace />;
+    const home = user.role === 'owner' ? '/owner-dashboard' : user.role === 'admin' ? '/admin-dashboard' : '/dashboard';
+    return <Navigate to={home} replace />;
   }
   return children;
 }

@@ -13,6 +13,8 @@ export default function Login() {
 
   const goToRole = (role) => setForm((f) => ({ ...f, role }));
 
+  const roleHome = (role) => (role === 'owner' ? '/owner-dashboard' : role === 'admin' ? '/admin-dashboard' : '/dashboard');
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErr('');
@@ -21,7 +23,7 @@ export default function Login() {
     setBusy(false);
     if (res.success) {
       showToast('Welcome back!');
-      navigate(res.user.role === 'owner' ? '/owner-dashboard' : '/dashboard');
+      navigate(roleHome(res.user.role));
     } else {
       setErr(res.message);
     }
@@ -43,6 +45,10 @@ export default function Login() {
             <button type="button" onClick={() => goToRole('owner')} className={`role-tab ${form.role === 'owner' ? 'active owner' : ''}`}>
               <span className="role-icon">🏭</span>
               <span><strong>Warehouse Owner</strong><small>I rent out space</small></span>
+            </button>
+            <button type="button" onClick={() => goToRole('admin')} className={`role-tab ${form.role === 'admin' ? 'active admin' : ''}`}>
+              <span className="role-icon">👨‍💼</span>
+              <span><strong>Platform Admin</strong><small>I review and manage</small></span>
             </button>
           </div>
         </div>

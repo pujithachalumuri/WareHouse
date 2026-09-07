@@ -22,6 +22,23 @@ const securityList = ['24/7 Security Guard', 'CCTV Surveillance', 'Biometric Acc
 const storageTypes = ['Dry Storage', 'Cold Storage', 'Secure Vault', 'Open Yard', 'Controlled'];
 const warehouseTypes = ['Partial', 'Full', 'Shared', 'Multi-tenant'];
 
+const MAX_VIDEO_MB = 2.5;
+const MAX_DOC_MB = 2;
+const MAX_DOCS = 3;
+
+const fileToBase64 = (file) =>
+  new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(new Error('Could not read file'));
+    r.readAsDataURL(file);
+  });
+
+const stripPrefix = (dataUrl) => {
+  const m = /^data:([^;]+);base64,(.*)$/s.exec(dataUrl || '');
+  return m ? { mime: m[1], data: m[2] } : { mime: '', data: dataUrl || '' };
+};
+
 export default function AddWarehouse() {
   const { logout } = useAuth();
   const navigate = useNavigate();
@@ -30,6 +47,7 @@ export default function AddWarehouse() {
     name: '', location: '', address: '', totalSpace: '', availableSpace: '',
     price: '', minimumDuration: 1, storageType: 'Dry Storage', warehouseType: 'Partial',
     description: '', facilities: [], security: [], images: [],
+    verificationVideo: '', verificationVideoName: '', verificationDocuments: [],
   });
 
   const toggle = (key, val) => {
@@ -39,22 +57,75 @@ export default function AddWarehouse() {
     }));
   };
 
+  const onVideo = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > MAX_VIDEO_MB * 1024 * 1024) {
+      showToast(`Video must be under ${MAX_VIDEO_MB}MB`, 'error');
+      return;
+    }
+    try {
+      const { data } = stripPrefix(await fileToBase64(file));
+      setForm((f) => ({ ...f, verificationVideo: data, verificationVideoName: file.name }));
+    } catch (err) { showToast(err.message, 'error'); }
+  };
+
+  const onDocs = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (!files.length) return;
+    const current = form.verificationDocuments;
+    const room = MAX_DOCS - current.length;
+    if (files.length > room) {
+      showToast(`Maximum ${MAX_DOCS} documents allowed`, 'error');
+    }
+    const accepted = files.slice(0, Math.max(0, room));
+    const out = [];
+    for (const file of accepted) {
+      if (file.size > MAX_DOC_MB * 1024 * 1024) {
+        showToast(`"${file.name}" exceeds the ${MAX_DOC_MB}MB limit`, 'error');
+        continue;
+      }
+      try {
+        const { mime, data } = stripPrefix(await fileToBase64(file));
+        out.push({ name: file.name, type: mime || file.type, data });
+      } catch (err) { showToast(err.message, 'error'); }
+    }
+    setForm((f) => ({ ...f, verificationDocuments: [...f.verificationDocuments, ...out] }));
+  };
+
+  const removeDoc = (i) => {
+    setForm((f) => ({ ...f, verificationDocuments: f.verificationDocuments.filter((_, x) => x !== i) }));
+  };
+
   const submit = async (e) => {
     e.preventDefault();
     if (Number(form.availableSpace) > Number(form.totalSpace)) {
       showToast('Available space cannot exceed total space', 'error');
       return;
     }
+    if (!form.verificationVideo && form.verificationDocuments.length === 0) {
+      showToast('Upload a warehouse video or documents as proof before submitting', 'error');
+      return;
+    }
+    const approxBytes = (b64) => Math.floor(String(b64 || '').length * 3 / 4);
+    const totalUpload = approxBytes(form.verificationVideo) + form.verificationDocuments.reduce((s, d) => s + approxBytes(d.data), 0);
+    if (totalUpload > 3.4 * 1024 * 1024) {
+      showToast('Total upload size exceeds 3.4MB. Use a shorter video or smaller documents.', 'error');
+      return;
+    }
     setSubmitting(true);
     try {
       await api.post('/warehouses', {
         ...form,
+        verificationVideoName: undefined,
         totalSpace: Number(form.totalSpace),
         availableSpace: Number(form.availableSpace),
         price: Number(form.price),
         minimumDuration: Number(form.minimumDuration) || 1,
       });
-      showToast('Warehouse created successfully');
+      showToast('Warehouse submitted for admin verification');
       navigate('/my-warehouses');
     } catch (err) {
       showToast(err.message, 'error');
@@ -69,7 +140,7 @@ export default function AddWarehouse() {
       <div className="dash-main">
         <div className="dash-content">
           <h2 className="page-title">Add Warehouse</h2>
-          <p className="page-sub">List your warehouse space. It goes live immediately.</p>
+          <p className="page-sub">List your warehouse space. Upload proof (video/documents) — an admin approves it before it goes live.</p>
 
           <form onSubmit={submit} className="card">
             <div className="form-row">
@@ -140,6 +211,27 @@ export default function AddWarehouse() {
                   <input type="checkbox" checked={form.security.includes(f)} onChange={() => toggle('security', f)} /> {f}
                 </label>
               ))}
+            </div>
+
+            <h3 className="mb-2 mt-3">Verification Proof *</h3>
+            <p className="text-muted text-sm mb-2" style={{ marginTop: -8 }}>
+              Upload a short video of the warehouse and/or documents (ownership, licence, lease) so the admin can verify it exists.
+            </p>
+            <div className="form-group">
+              <label>Warehouse Video (max {MAX_VIDEO_MB}MB)</label>
+              <input type="file" accept="video/*" onChange={onVideo} />
+              {form.verificationVideoName && <div className="form-hint">🎬 {form.verificationVideoName} — uploaded</div>}
+            </div>
+            <div className="form-group">
+              <label>Documents (PDF/images, max {MAX_DOC_MB}MB each, up to {MAX_DOCS})</label>
+              <input type="file" accept=".pdf,image/*" multiple onChange={onDocs} />
+              <div className="flex" style={{ gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                {form.verificationDocuments.map((d, i) => (
+                  <span key={i} className="tag tag-blue">
+                    📄 {d.name} <button type="button" className="btn-link" onClick={() => removeDoc(i)}>✕</button>
+                  </span>
+                ))}
+              </div>
             </div>
 
             <button type="submit" className="btn btn-primary btn-lg btn-block" disabled={submitting}>

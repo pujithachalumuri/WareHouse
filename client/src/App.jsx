@@ -36,6 +36,17 @@ import Revenue from './pages/owner/Revenue';
 import OwnerAgreements from './pages/owner/Agreements';
 import OwnerProfile from './pages/owner/OwnerProfile';
 
+// Admin
+import AdminDashboard from './pages/admin/Dashboard';
+import AdminVerification from './pages/admin/Verification';
+import AdminWarehouses from './pages/admin/Warehouses';
+import AdminUsers from './pages/admin/Users';
+import AdminBookings from './pages/admin/Bookings';
+import AdminPayments from './pages/admin/Payments';
+import AdminComplaints from './pages/admin/Complaints';
+import AdminReviews from './pages/admin/Reviews';
+import AdminReports from './pages/admin/Reports';
+
 export default function App() {
   return (
     <Layout>
@@ -73,6 +84,17 @@ export default function App() {
         <Route path="/revenue" element={<ProtectedRoute roles={['owner']}><Revenue /></ProtectedRoute>} />
         <Route path="/owner-agreements" element={<ProtectedRoute roles={['owner']}><OwnerAgreements /></ProtectedRoute>} />
         <Route path="/owner-profile" element={<ProtectedRoute roles={['owner']}><OwnerProfile /></ProtectedRoute>} />
+
+        {/* Admin */}
+        <Route path="/admin-dashboard" element={<ProtectedRoute roles={['admin']}><AdminDashboard /></ProtectedRoute>} />
+        <Route path="/verification" element={<ProtectedRoute roles={['admin']}><AdminVerification /></ProtectedRoute>} />
+        <Route path="/manage-warehouses" element={<ProtectedRoute roles={['admin']}><AdminWarehouses /></ProtectedRoute>} />
+        <Route path="/users" element={<ProtectedRoute roles={['admin']}><AdminUsers /></ProtectedRoute>} />
+        <Route path="/manage-bookings" element={<ProtectedRoute roles={['admin']}><AdminBookings /></ProtectedRoute>} />
+        <Route path="/manage-payments" element={<ProtectedRoute roles={['admin']}><AdminPayments /></ProtectedRoute>} />
+        <Route path="/complaints" element={<ProtectedRoute roles={['admin']}><AdminComplaints /></ProtectedRoute>} />
+        <Route path="/reviews" element={<ProtectedRoute roles={['admin']}><AdminReviews /></ProtectedRoute>} />
+        <Route path="/reports" element={<ProtectedRoute roles={['admin']}><AdminReports /></ProtectedRoute>} />
 
         <Route path="*" element={<Home />} />
       </Routes>

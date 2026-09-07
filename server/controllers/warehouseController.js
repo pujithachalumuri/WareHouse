@@ -1,10 +1,11 @@
 const Warehouse = require('../models/Warehouse');
 const Review = require('../models/Review');
+const Notification = require('../models/Notification');
 
 // @route GET /api/warehouses ?location,space,price,max,type,security,etc
 const getWarehouses = async (req, res) => {
   try {
-    const query = { status: 'active' };
+    const query = { status: 'active', verificationStatus: 'verified' };
     const { location, minSpace, maxPrice, storageType, warehouseType } = req.query;
 
     if (location) query.location = new RegExp(location, 'i');
@@ -28,7 +29,7 @@ const getWarehouses = async (req, res) => {
 // @route GET /api/warehouses/public
 const getPublicWarehouses = async (req, res) => {
   try {
-    const whs = await Warehouse.find({ status: 'active' })
+    const whs = await Warehouse.find({ status: 'active', verificationStatus: 'verified' })
       .populate('ownerId', 'name company')
       .limit(Number(req.query.limit) || 50);
     res.json(whs);
@@ -67,6 +68,21 @@ const createWarehouse = async (req, res) => {
     if (req.user.role !== 'owner' && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Only warehouse owners can list warehouses' });
     }
+    const docs = Array.isArray(data.verificationDocuments) ? data.verificationDocuments.slice(0, 3) : [];
+    for (const d of docs) {
+      if (!d.name || !d.data) return res.status(400).json({ message: 'Each verification document needs a name and file content' });
+      const bytes = Buffer.byteLength(d.data, 'base64');
+      if (bytes > 2 * 1024 * 1024) return res.status(400).json({ message: `Document "${d.name}" exceeds the 2MB limit` });
+    }
+    if (data.verificationVideo) {
+      const bytes = Buffer.byteLength(data.verificationVideo, 'base64');
+      if (bytes > 2.5 * 1024 * 1024) return res.status(400).json({ message: 'Verification video exceeds the 2.5MB limit' });
+    }
+    const videoBytes = data.verificationVideo ? Buffer.byteLength(data.verificationVideo, 'base64') : 0;
+    const docsBytes = docs.reduce((s, d) => s + Buffer.byteLength(d.data || '', 'base64'), 0);
+    if (videoBytes + docsBytes > 3.4 * 1024 * 1024) {
+      return res.status(400).json({ message: 'Total upload size exceeds 3.4MB. Use a shorter video or smaller documents.' });
+    }
     const wh = await Warehouse.create({
       ownerId: req.user._id,
       name: data.name,
@@ -82,7 +98,9 @@ const createWarehouse = async (req, res) => {
       facilities: data.facilities || [],
       security: data.security || [],
       images: data.images || [],
-      verificationStatus: 'verified',
+      verificationStatus: 'pending',
+      verificationVideo: data.verificationVideo || '',
+      verificationDocuments: docs,
     });
     res.status(201).json(wh);
   } catch (err) {
@@ -117,6 +135,12 @@ const verifyWarehouse = async (req, res) => {
     wh.verificationStatus = req.body.verificationStatus || 'verified';
     if (req.body.status) wh.status = req.body.status;
     await wh.save();
+    await Notification.create({
+      userId: wh.ownerId,
+      title: wh.verificationStatus === 'verified' ? 'Warehouse approved' : 'Warehouse rejected',
+      message: `Your warehouse "${wh.name}" has been ${wh.verificationStatus === 'verified' ? 'approved and is now live' : 'rejected after review'}.`,
+      type: 'system',
+    });
     res.json(wh);
   } catch (err) {
     res.status(500).json({ message: err.message });
